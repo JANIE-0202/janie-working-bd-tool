@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amazon BD价格抓取工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    :root { --ink:#172033; --muted:#667085; --line:#dfe6ef; --blue:#195fa8; --blue2:#eaf4ff; --bg:#f5f8fc; --green:#0b815a; --red:#b42318; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(135deg,#f4f8fc 0%,#eef5ff 52%,#f7fbff 100%); color:var(--ink); font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif; }
+    .page { max-width:1180px; margin:0 auto; padding:44px 22px 64px; }
+    .hero { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; margin-bottom:28px; }
+    .eyebrow { color:var(--blue); font-weight:700; letter-spacing:.12em; text-transform:uppercase; font-size:12px; }
+    h1 { margin:8px 0 10px; font-size:clamp(30px,4vw,46px); line-height:1.08; letter-spacing:-.03em; }
+    .sub { margin:0; color:var(--muted); font-size:15px; max-width:720px; line-height:1.7; }
+    .badge { color:var(--green); background:#e8f8f0; border:1px solid #bdebd7; border-radius:99px; padding:8px 12px; font-size:13px; white-space:nowrap; }
+    .grid { display:grid; grid-template-columns:1.05fr .95fr; gap:18px; }
+    .panel { background:rgba(255,255,255,.86); border:1px solid rgba(206,218,233,.9); border-radius:18px; box-shadow:0 14px 36px rgba(25,63,105,.08); padding:22px; }
+    .panel h2 { margin:0 0 6px; font-size:18px; }
+    .panel p { margin:0 0 18px; color:var(--muted); font-size:13px; line-height:1.6; }
+    .drop { display:flex; align-items:center; justify-content:center; min-height:170px; border:1.5px dashed #9cb9d8; border-radius:14px; background:linear-gradient(180deg,#f8fbff,#f1f7ff); cursor:pointer; text-align:center; transition:.2s; }
+    .drop:hover,.drop.is-over { border-color:var(--blue); background:var(--blue2); }
+    .drop strong { display:block; color:var(--blue); font-size:16px; margin-bottom:5px; }
+    .drop span { color:var(--muted); font-size:13px; }
+    input[type=file] { display:none; }
+    textarea { width:100%; min-height:170px; resize:vertical; border:1px solid var(--line); border-radius:12px; padding:13px 14px; font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; color:var(--ink); background:#fbfdff; outline:none; }
+    textarea:focus { border-color:#7baadc; box-shadow:0 0 0 3px #e6f1ff; }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:18px; }
+    .input-tools { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; }
+    button { border:0; border-radius:10px; padding:11px 16px; font-weight:700; font-size:14px; cursor:pointer; transition:.2s; }
+    .primary { background:var(--blue); color:#fff; box-shadow:0 8px 18px rgba(25,95,168,.22); }
+    .primary:hover { background:#124b86; transform:translateY(-1px); }
+    .secondary { background:#edf4fb; color:#24537d; }
+    .secondary:hover { background:#deebf8; }
+    button:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+    .file-name { color:var(--muted); font-size:13px; margin-top:10px; min-height:20px; }
+    .status { margin-top:16px; padding:12px 14px; border-radius:10px; background:#f3f6fa; color:#506174; font-size:13px; line-height:1.5; }
+    .status.ok { background:#eaf8f1; color:#146c4e; } .status.error { background:#fff1f0; color:var(--red); }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+    .stat { padding:14px; border:1px solid var(--line); border-radius:12px; background:#fbfdff; } .stat b { display:block; font-size:22px; margin-bottom:3px; } .stat span { color:var(--muted); font-size:12px; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; max-height:440px; }
+    table { width:100%; border-collapse:collapse; font-size:12px; background:#fff; } th,td { padding:10px 11px; border-bottom:1px solid #e7edf4; text-align:left; white-space:nowrap; } th { position:sticky; top:0; background:#1f5c91; color:#fff; font-weight:700; } td.num { text-align:right; } tr:nth-child(even) td { background:#f6fbff; }
+    .foot { margin-top:18px; color:var(--muted); font-size:12px; line-height:1.6; }
+    .tutorial-modal[hidden] { display:none; }
+    .tutorial-modal { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(16, 30, 48, .45); }
+    .tutorial-card { width:min(680px, 100%); max-height:calc(100vh - 40px); overflow:auto; background:#fff; border:1px solid #d8e2ee; border-radius:16px; box-shadow:0 24px 70px rgba(20,45,80,.24); padding:22px; }
+    .tutorial-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .tutorial-head h3 { margin:0; font-size:20px; }
+    .tutorial-close { padding:6px 10px; font-size:20px; line-height:1; background:#edf4fb; color:#24537d; }
+    .tutorial-card textarea { min-height:260px; margin-top:8px; font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif; }
+    .tutorial-note { color:var(--muted); font-size:12px; line-height:1.5; margin:10px 0 0; }
+    @media (max-width:800px) { .hero { align-items:flex-start; flex-direction:column; } .grid { grid-template-columns:1fr; } .panel { padding:18px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero"><div><div class="eyebrow">DATA CLEANER · XLSX</div><h1>Amazon BD价格抓取工具</h1><p class="sub">导入 Excel，或直接粘贴网页复制的数据。工具会自动识别标题、ASIN、SKU、原价和活动价最大值，并把每个商品整理成一行。</p></div><div class="badge">浏览器本地处理 · 数据不上传</div></section>
+    <section class="grid">
+      <div class="panel"><h2>1. 输入数据</h2><p>任选一种方式。Excel 支持常规 .xlsx 文件；粘贴方式适合从网页或表格中直接复制整列内容。</p>
+        <label class="drop" id="drop"><input id="file" type="file" accept=".xlsx,.xls" /><span><strong>点击选择 Excel，或拖拽到这里</strong><span>支持 .xlsx / .xls</span></span></label>
+        <div class="file-name" id="fileName">尚未选择文件</div>
+        <div class="input-tools"><button class="secondary" id="systemPick" type="button" hidden>用系统方式选择 Excel</button><button class="secondary" id="tutorialBtn" type="button">操作教程</button></div>
+        <div style="height:1px;background:var(--line);margin:18px 0"></div>
+        <label for="paste" style="font-weight:700;font-size:14px;display:block;margin-bottom:8px">或者粘贴网页数据</label>
+        <textarea id="paste" placeholder="把从网页复制的单列数据粘贴到这里……"></textarea>
+        <div class="actions"><button class="primary" id="clean">开始清洗</button><button class="secondary" id="clear">清空输入</button></div>
+        <div class="status" id="status">等待输入数据。</div>
+      </div>
+      <div class="panel"><h2>2. 预览与导出</h2><p>清洗完成后先抽查前几行，再导出标准 Excel 文件。</p>
+        <div class="stats"><div class="stat"><b id="count">0</b><span>商品条数</span></div><div class="stat"><b id="titleCount">0</b><span>标题已识别</span></div><div class="stat"><b id="missing">0</b><span>缺失字段</span></div></div>
+        <div class="table-wrap"><table><thead><tr><th>标题</th><th>ASIN</th><th>SKU</th><th>原价</th><th>活动价最大值</th></tr></thead><tbody id="body"><tr><td colspan="5" style="text-align:center;color:#8492a3;padding:30px">清洗结果会显示在这里</td></tr></tbody></table></div>
+        <div class="actions"><button class="primary" id="export" disabled>导出结果 Excel</button></div>
+        <div class="foot">识别规则：以 B0 开头的 ASIN 与带连字符的 SKU 为商品起点；标题取商品块前的品牌/商品标题；原价和活动价最大值缺失时保留空白。标准 .xlsx 与粘贴数据可直接在浏览器中处理。</div>
+      </div>
+    </section>
+  </main>
+  <div class="tutorial-modal" id="tutorialModal" hidden>
+    <section class="tutorial-card" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
+      <div class="tutorial-head"><h3 id="tutorialTitle">操作教程</h3><button class="tutorial-close" id="tutorialClose" type="button" aria-label="关闭">×</button></div>
+      <textarea id="tutorialText" aria-label="操作教程内容"></textarea>
+      <p class="tutorial-note" id="tutorialNote">教程为只读内容。</p>
+      <div class="actions" id="tutorialActions" hidden><button class="primary" id="tutorialSave" type="button">保存教程</button><button class="secondary" id="tutorialReset" type="button">恢复默认</button><button class="secondary" id="tutorialShare" type="button">复制教程分享链接</button></div>
+    </section>
+  </div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let selectedFile = null, sourceRows = [], cleanedRows = [];
+    const idPattern = /^\s*(B0[A-Z0-9]{8,})\s*,\s*([^,\n]+?-[^,\n]+?)\s*$/i;
+    const toText = v => v == null ? '' : String(v).trim();
+    const parseNumber = v => { if (typeof v === 'number' && Number.isFinite(v)) return v; const s=toText(v).replace(/,/g,''); if (!s || s==='—' || s==='-') return null; const m=s.match(/-?\d+(?:\.\d+)?/); return m ? Number(m[0]) : null; };
+    const titleCandidate = s => s && !/^(?:亚马逊|更改\s*SKU|有货|推荐\s*ASIN)$/i.test(s) && !/^(?:无库存|非在售|您的|参考价|最小值|最大值)/.test(s) && !/^-?\d+(?:[.,]\d+)?$/.test(s) && s!=='—' && s!=='-' && !/[:：]\s*€?\s*-?\d/.test(s) && /[A-Za-zÀ-ÿ\u4e00-\u9fff]/.test(s);
+    function clean(values) { const rows=[]; let cur=null, pending='', activity=false, max=false; const finish=()=>{if(cur) rows.push([cur.title,cur.asin,cur.sku,cur.activity,cur.max]); cur=null;activity=false;max=false;}; for(const raw of values){const s=toText(raw), m=s.match(idPattern); if(m){const title=pending;finish();cur={title,asin:m[1],sku:m[2],activity:null,max:null};pending='';continue;} if(!cur){if(s) pending=s;continue;} if(!s) continue; if(/商品价格\s*[:：]?/.test(s)&&!/最低|最高/.test(s)){activity=true;continue;} const inMax=s.match(/最大值\s*[:：]?\s*[^\d-]*(-?\d+(?:[.,]\d+)?)/); if(inMax){cur.max=parseNumber(inMax[1]);max=false;continue;} if(/最大值\s*[:：]?/.test(s)){max=true;continue;} if(activity){const n=parseNumber(raw);if(n!==null){cur.activity=n;activity=false;}continue;} if(max){const n=parseNumber(raw);if(n!==null){cur.max=n;max=false;}continue;} if(titleCandidate(s)) pending=s;} finish(); return rows; }
+    function render(){ $('count').textContent=cleanedRows.length; $('titleCount').textContent=cleanedRows.filter(r=>r[0]).length; $('missing').textContent=cleanedRows.reduce((n,r)=>n+r.slice(3).filter(v=>v==null).length,0); $('body').innerHTML=cleanedRows.slice(0,100).map(r=>`<tr>${r.map((v,i)=>`<td class="${i>2?'num':''}">${v==null?'':escapeHtml(v)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#8492a3;padding:30px">没有识别到商品数据</td></tr>'; $('export').disabled=!cleanedRows.length; }
+    const escapeHtml = v => String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const defaultTutorial = `1. 导入 Excel：点击上传区域选择 .xlsx 文件；或将网页数据粘贴到文本框。\n2. 点击“开始清洗”，工具会按标题、ASIN、SKU、原价和活动价最大值整理数据。\n3. 检查右侧预览，确认数量和缺失字段。\n4. 点击“导出结果 Excel”保存结果。\n5. 如果浏览器无法读取某个文件，可改用粘贴网页数据或换用普通本地 .xlsx 文件。\n6. 导入的文件数据是：后台复制BD信息→粘贴到Excel表中，“只粘贴文本”→保存。`;
+    const tutorialAppendix = `6. 导入的文件数据是：后台复制BD信息→粘贴到Excel表中，“只粘贴文本”→保存。`;
+    const normalizeTutorial = value => { const lines = String(value || '').replace(/\r/g, '').split('\n'); const result = []; let hasSix = false; for (const line of lines) { if (/^\s*6\s*[.．]/.test(line)) { if (!hasSix) { result.push(tutorialAppendix); hasSix = true; } continue; } if (/^\s*5\s*[.．].*(?:start_local_helper|Python|辅助服务)/i.test(line)) { result.push('5. 如果浏览器无法读取某个文件，可改用粘贴网页数据或换用普通本地 .xlsx 文件。'); continue; } result.push(line); } if (!hasSix) result.push(tutorialAppendix); return result.join('\n'); };
+    const tutorialModal = $('tutorialModal'), tutorialText = $('tutorialText'), tutorialKey = 'amazonBdPriceTutorial';
+    const tutorialAdmin = new URLSearchParams(location.search).get('editTutorial') === '1';
+    const tutorialFromUrl = new URLSearchParams(location.search).get('tutorial');
+    const loadTutorial = () => { let stored = ''; try { stored = localStorage.getItem(tutorialKey) || ''; } catch (_) {} let base = tutorialFromUrl || (stored ? normalizeTutorial(stored) : defaultTutorial); if (!tutorialFromUrl && stored && base !== stored) { try { localStorage.setItem(tutorialKey, base); } catch (_) {} } tutorialText.value = base; tutorialText.readOnly = !tutorialAdmin; $('tutorialActions').hidden = !tutorialAdmin; $('tutorialNote').textContent = tutorialAdmin ? '管理员编辑模式：修改后可保存并复制分享链接。' : '教程为只读内容。'; };
+    const closeTutorial = () => { tutorialModal.hidden = true; };
+    $('tutorialBtn').addEventListener('click', () => { loadTutorial(); tutorialModal.hidden = false; tutorialText.focus(); });
+    $('tutorialClose').addEventListener('click', closeTutorial);
+    $('tutorialModal').addEventListener('click', e => { if (e.target === tutorialModal) closeTutorial(); });
+    $('tutorialSave').addEventListener('click', () => { try { localStorage.setItem(tutorialKey, tutorialText.value); } catch (_) {} $('tutorialNote').textContent = '已保存到当前浏览器。点击“复制教程分享链接”可发给其他人。'; });
+    $('tutorialReset').addEventListener('click', () => { tutorialText.value = defaultTutorial; });
+    $('tutorialShare').addEventListener('click', async () => { const shareUrl = new URL(location.href); shareUrl.searchParams.delete('editTutorial'); shareUrl.searchParams.set('tutorial', tutorialText.value); try { await navigator.clipboard.writeText(shareUrl.toString()); $('tutorialNote').textContent = '分享链接已复制。对方打开后只能查看教程。'; } catch (_) { $('tutorialNote').textContent = shareUrl.toString(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !tutorialModal.hidden) closeTutorial(); });
+    loadTutorial();
+    $('file').addEventListener('change', e=>{selectedFile=e.target.files[0]||null;$('fileName').textContent=selectedFile?selectedFile.name:'尚未选择文件';});
+    $('drop').addEventListener('dragover',e=>{e.preventDefault();$('drop').classList.add('is-over')}); $('drop').addEventListener('dragleave',()=>$('drop').classList.remove('is-over')); $('drop').addEventListener('drop',e=>{e.preventDefault();$('drop').classList.remove('is-over');selectedFile=e.dataTransfer.files[0]||null;$('file').files=e.dataTransfer.files;$('fileName').textContent=selectedFile?selectedFile.name:'尚未选择文件';});
+    $('clean').addEventListener('click', async()=>{ try { let values=[]; if(selectedFile){const buf=await selectedFile.arrayBuffer();const wb=XLSX.read(buf,{type:'array',cellDates:false});const ws=wb.Sheets[wb.SheetNames[0]];values=XLSX.utils.sheet_to_json(ws,{header:1,raw:true}).map(r=>r[0]);} else {values=$('paste').value.split(/\r?\n/);} cleanedRows=clean(values); render(); $('status').className='status '+(cleanedRows.length?'ok':'error'); $('status').textContent=cleanedRows.length?`清洗完成：识别到 ${cleanedRows.length} 条商品，可导出结果。`:'没有识别到符合规则的 ASIN/SKU，请检查输入内容。'; } catch(e){$('status').className='status error';$('status').textContent='读取失败：'+e.message;} });
+    $('clear').addEventListener('click',()=>{selectedFile=null;$('file').value='';$('fileName').textContent='尚未选择文件';$('paste').value='';cleanedRows=[];render();$('status').className='status';$('status').textContent='等待输入数据。';});
+    $('export').addEventListener('click',()=>{const ws=XLSX.utils.aoa_to_sheet([['标题','ASIN','SKU','原价','活动价最大值'],...cleanedRows]); ws['!cols']=[{wch:70},{wch:16},{wch:38},{wch:14},{wch:16}]; const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'清洗结果');XLSX.writeFile(wb,'Amazon_BD价格抓取结果.xlsx');});
+  </script>
+  <script src="fixes.js?v=20260814.21"></script>
+</body>
+</html>
